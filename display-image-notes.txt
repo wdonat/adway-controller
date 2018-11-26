@@ -1,0 +1,11 @@
+python -m wand.display <picture.jpg>
+
+or in a script:
+
+import wand
+with Image(blob=file_data) as image:
+    wand.display.display(IMAGE)
+
+
+http://docs.wand-py.org/en/0.4.5/
+

@@ -5,6 +5,7 @@ import json
 import sysparam
 import os
 import requests
+from picamera import PiCamera
 
 api_key = sysparam.api_key
 base_url = sysparam.base_url
@@ -33,6 +34,7 @@ def initiateState():
         state['orientation'] = 'LEFT'
     else:
         state['orientation'] = 'RIGHT'
+    print state
     return
 
 
@@ -45,7 +47,7 @@ def displayImage(img, dur):
 
 def displayDefaultImage():
     default_image = sysparam.image_dir + 'default.png'
-    displayImage(default_image, 99)
+    displayImage(default_image, 9)
     return
 
 
@@ -59,25 +61,27 @@ def getCurrentLocation():
     lon = '45.6'
     location = (lat, lon)
     state['location'] = location
+    print state['location']
     return
 
 
 def initiateProjector():
     global state
     state['projector_status'] = 'ON'
+    print 'Projector on'
     return
 
 
 # This function only works on the Raspberry Pi
-# def takePhoto(advertiser, campaign, location):
-#     camera = PiCamera()
-#     camera.resolution = (1024, 768)
-#     camera.start_preview()  # perhaps not necessary?
-#     # See if correct directory exists; if not, create it:
-#     if not os.path.exists(sysparam.image_dir + '/' + advertiser):
-#         os.makedirs(sysparam.image_dir + '/' + advertiser)
-#     camera.capture(sysparam.image_dir + '/' + advertiser + '/' + str(campaign) + '_' + str(location[0]) + '_' +
-#                    str(location[1]) + datetime.datetime.today().strftime('%Y-%m-%d-%H:%M:%S') + '.jpg')
+def takePhoto(advertiser, campaign, location):
+    camera = PiCamera()
+    camera.resolution = (1024, 768)
+    camera.start_preview()  # perhaps not necessary?
+    # See if correct directory exists; if not, create it:
+    if not os.path.exists(sysparam.image_dir + '/' + advertiser):
+        os.makedirs(sysparam.image_dir + '/' + advertiser)
+    camera.capture(sysparam.image_dir + '/' + advertiser + '/' + str(campaign) + '_' + str(location[0]) + '_' +
+                   str(location[1]) + datetime.datetime.today().strftime('%Y-%m-%d-%H:%M:%S') + '.jpg')
 
 
 def displayCampaign(campaign):
@@ -95,6 +99,7 @@ def displayCampaign(campaign):
     else:
         image = campaign['image_right']
     getCurrentLocation()
+    takePhoto(campaign['advertiser'], campaign['id'], state['location'])
     displayed_campaign['lat'] = state['location'][0]
     displayed_campaign['lon'] = state['location'][1]
     displayed_campaign['time_run'] = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
@@ -128,7 +133,9 @@ def login(user, password, location):
     response = requests.request("POST", url, data=payload, headers=header)
     x = json.loads(response.text)
     token = x['data'][0]['token']
+    print token
     state['login'] = 'ON'
+    print 'Logged in'
     return
 
 
@@ -157,9 +164,11 @@ def initializeDevice(user, location):
     global token
     global device_token
     url = base_url + '/init/device'
-    payload = '{"API_KEY": "' + api_key + '", "data": {"' + device_id + '": 111, "lat": ' + str(location[0]) + \
+    payload = '{"API_KEY": "' + api_key + '", "data": {"device_id": "' + device_id + '", "lat": ' + str(location[0]) + \
               ', "lon": ' + str(location[1]) + '}}'
-    requests.request('POST', url, data=payload, headers=header)
+    response = requests.request('POST', url, data=payload, headers=header)
+    print response
+    print 'device initialized'
     return
 
 
@@ -182,7 +191,7 @@ def getContent(user):
     payload = '{"user": "' + user + '", "code": "' + token + '", "API_KEY": "' + api_key + '", "data": {"lat":' + \
               str(state['location'][0]) + ', "lon": ' + str(state['location'][1]) + ', "cur_campaign": ' + \
               str(state['current_campaign']) + ', "device_id": "' + device_id + '", "projector_left": 325, \
-              "projector_right": 326, "stats": [' + displayed_campaigns + ']}}'
+              "projector_right": 326, "stats": ' + str(displayed_campaigns) + '}}'
 
     # payload = '{"user": "' + user + '", "code": "' + token + '", "API_KEY": "' + api_key + \
     #           '", "data": {"lat":' + str(location[0]) + ', "lon": ' + str(location[1]) + ', "cur_campaign": 2342, "device_id": "' + device_id + \
@@ -239,12 +248,15 @@ def main():
     global active_campaigns
     global displayed_campaigns
     initiateState()
+    login('wolframdonat@gmail.com', '5mudg301', state['location'])
+    initializeDevice('wolframdonat@gmail.com', state['location'])
     initiateProjector()
     getCurrentLocation()
     displayDefaultImage()
-    getContent()
-    for i in range(len(active_campaigns)):
-        displayCampaign(active_campaigns[i])
+    getContent('wolframdonat@gmail.com')
+    print active_campaigns
+#    for i in range(len(active_campaigns)):
+#        displayCampaign(active_campaigns[i])
 
 
 if __name__ == '__main__':
