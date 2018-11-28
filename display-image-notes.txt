@@ -1,11 +1,18 @@
-python -m wand.display <picture.jpg>
+## May require pip install --user psutil
 
-or in a script:
+import time
+import psutil
+import os
 
-import wand
-with Image(blob=file_data) as image:
-    wand.display.display(IMAGE)
-
-
-http://docs.wand-py.org/en/0.4.5/
-
+while True:
+    os.system('feh ~/Pictures/left/ &')
+    time.sleep(5)
+    for process in psutil.process_iter():
+        if 'feh' in process.cmdline():
+            process.terminate()
+    
+    os.system('feh ~/Pictures/right/ &')
+    time.sleep(5)
+    for process in process.cmdline():
+        if 'feh' in process.cmdline():
+            process.terminate()
