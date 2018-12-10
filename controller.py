@@ -1,11 +1,13 @@
 import time
 import datetime
-import subprocess
+import psutil
 import json
 import sysparam
 import os
+import signal
 import requests
-from picamera import PiCamera
+import socket
+#from picamera import PiCamera
 
 api_key = sysparam.api_key
 base_url = sysparam.base_url
@@ -18,7 +20,49 @@ global device_token
 
 
 active_campaigns = []  # List of campaigns to show
-# Use models.CampaignModel as a template
+offline_campaigns = []  # mirrors last list of active camps for connectivity drops
+
+def internet(host='8.8.8.8', port=53, timeout=3):
+    try:
+        socket.setdefaulttimeout(timeout)
+        socket.socket(socket.AF_INET, socket.SOCK_STREAM).connect((host, port))
+        return True
+    except Exception as ex:
+        return False
+
+def fillInCampaigns():
+    global active_campaigns
+    cm['id'] = 1
+    cm['name'] = 'ADWAY GLOBAL'
+    cm['latitude'] = str(state['location'][0])
+    cm['longitude'] = str(state['location'][1])
+    cm['distance'] = 99
+    cm['duration'] = 99
+    cm['advertiser'] = 'ADWAY'
+    cm['left_dir'] = sysparam.image_dir + 'ADWAY/left/'
+    cm['right_dir'] = sysparam.image_dir + 'ADWAY/right/'
+    cm['image_left'] = 'https://s3.amazonaws.com/adwayusa/website/ADWAY_BW_right.jpg'
+    cm['image_right'] = 'https://s3.amazonaws.com/adwayusa/website/ADWAY_BW_right.jpg'
+    cm['logo_link'] = 'https://s3.amazonaws.com/adwayusa/ads/UllbRsLkao_logo.jpg'
+    cm['price'] = 0
+    cm['priority'] = 99
+    active_campaigns.append(cm)
+
+    cm['id'] = 2
+    cm['name'] = 'TEST CAMPAIGN'
+    cm['latitude'] = str(state['location'][0])
+    cm['longitude'] = str(state['location'][1])
+    cm['distance'] = 50
+    cm['duration'] = 50
+    cm['advertiser'] = 'SAURON'
+    cm['left_dir'] = sysparam.image_dir + 'SAURON/left/'
+    cm['right_dir'] = sysparam.image_dir + 'SAURON/right/'
+    cm['image_left'] = 'https://hdwallpapers2013.com/wp-content/uploads/2013/03/The-Avengers-Logo-Wallpaper.jpg'
+    cm['image_right'] = 'https://hdwallpapers2013.com/wp-content/uploads/2013/03/The-Avengers-Logo-Wallpaper.jpg'
+    cm['logo_link'] = 'https://s3.amazonaws.com/adwayusa/ads/UllbRsLkao_logo.jpg'
+    cm['price'] = 2
+    cm['priority'] = 99
+    active_campaigns.append(cm)
 
 displayed_campaigns = []  # List of displayed campaigns & stats to send to server
 # Use models.DisplayedModel as a template
@@ -28,26 +72,31 @@ def initiateState():
     global state
     state['login'] = 'OFF'
     state['projector_status'] = 'OFF'
-    state['location'] = (0, 0)
+    state['location'] = (34.103, -118.326)
     state['current_campaign'] = 0
     if sysparam.orientation == 'LEFT':
         state['orientation'] = 'LEFT'
     else:
         state['orientation'] = 'RIGHT'
+    state['device_id'] = device_id
     print state
     return
 
 
-def displayImage(img, dur):
+def displayImage(img_dir, dur):
     # Display image
+    os.system('feh --hide-pointer -x -q black -g 1366x768 ' + img_dir + ' &')
     time.sleep(dur)
     # Clear image
+    for process in psutil.process_iter():
+        if 'feh' in process.cmdline():
+            process.terminate()
     return
 
 
 def displayDefaultImage():
-    default_image = sysparam.image_dir + 'default.png'
-    displayImage(default_image, 9)
+    default_dir = sysparam.image_dir + 'ADWAY/right/'
+    displayImage(default_dir, 10)
     return
 
 
@@ -57,8 +106,10 @@ def getCurrentLocation():
     :return:
     """
     global state
-    lat = '181.005'
-    lon = '45.6'
+
+    # hard-coded for demo
+    lat = '34.103'
+    lon = '-118.326'
     location = (lat, lon)
     state['location'] = location
     print state['location']
@@ -73,15 +124,15 @@ def initiateProjector():
 
 
 # This function only works on the Raspberry Pi
-def takePhoto(advertiser, campaign, location):
-    camera = PiCamera()
-    camera.resolution = (1024, 768)
-    camera.start_preview()  # perhaps not necessary?
-    # See if correct directory exists; if not, create it:
-    if not os.path.exists(sysparam.image_dir + '/' + advertiser):
-        os.makedirs(sysparam.image_dir + '/' + advertiser)
-    camera.capture(sysparam.image_dir + '/' + advertiser + '/' + str(campaign) + '_' + str(location[0]) + '_' +
-                   str(location[1]) + datetime.datetime.today().strftime('%Y-%m-%d-%H:%M:%S') + '.jpg')
+# def takePhoto(advertiser, campaign, location):
+#     camera = PiCamera()
+#     camera.resolution = (1024, 768)
+#     camera.start_preview()  # perhaps not necessary?
+#     # See if correct directory exists; if not, create it:
+#     if not os.path.exists(sysparam.image_dir + '/' + advertiser):
+#         os.makedirs(sysparam.image_dir + '/' + advertiser)
+#     camera.capture(sysparam.image_dir + '/' + advertiser + '/' + str(campaign) + '_' + str(location[0]) + '_' +
+#                    str(location[1]) + datetime.datetime.today().strftime('%Y-%m-%d-%H:%M:%S') + '.jpg')
 
 
 def displayCampaign(campaign):
@@ -99,17 +150,25 @@ def displayCampaign(campaign):
     else:
         image = campaign['image_right']
     getCurrentLocation()
-    takePhoto(campaign['advertiser'], campaign['id'], state['location'])
-    displayed_campaign['lat'] = state['location'][0]
-    displayed_campaign['lon'] = state['location'][1]
-    displayed_campaign['time_run'] = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
-    displayed_campaign['start_lat'] = state['location'][0]
-    displayed_campaign['start_lon'] = state['location'][1]
-    displayImage(image, duration)
+
+    displayed_campaign["campaign_id"] = campaign['id']
+    displayed_campaign["lat"] = state['location'][0]
+    displayed_campaign["lon"] = state['location'][1]
+    displayed_campaign["time"] = datetime.datetime.now().strftime('%Y-%m-%d_%H:%M:%S')
+    displayed_campaign["start_lat"] = state['location'][0]
+    displayed_campaign["start_lon"] = state['location'][1]
+    print 'campaign: ', campaign['id'], 'name: ', campaign['name'], 'duration: ', duration 
+    if state['orientation'] == 'LEFT':
+        displayImage(campaign['left_dir'], duration)
+    else:
+        displayImage(campaign['right_dir'], duration)
+    # takePhoto(campaign['advertiser'], campaign['id'], state['location'])
     getCurrentLocation()
-    displayed_campaign['stop_lat'] = state['location'][0]
-    displayed_campaign['stop_lon'] = state['location'][1]
-    displayed_campaign['duration'] = duration
+    displayed_campaign["stop_lat"] = state['location'][0]
+    displayed_campaign["stop_lon"] = state['location'][1]
+    displayed_campaign["duration"] = duration
+    displayed_campaign["speed"] = 45
+    displayed_campaign["RT_impressions"] = 5
 
     displayed_campaigns.append(displayed_campaign)
     return
@@ -128,8 +187,6 @@ def login(user, password, location):
     url = base_url + '/user/login'
     payload = '{"user": "' + user + '", "API_KEY": "' + api_key + '", "data": {"secret": "' + password + \
               '", "lat": ' + str(state['location'][0]) + ', "lon": ' + str(state['location'][1]) + '}}'
-    # payload = "{\"user\": \"wolframdonat@gmail.com\", \"API_KEY\": \"21E4E81DF8E9103AAA181228C7B3D111\",
-    # \"data\":{\"secret\": \"5mudg301\", \"lat\": 121.12, \"lon\": 321.12}}\n"
     response = requests.request("POST", url, data=payload, headers=header)
     x = json.loads(response.text)
     token = x['data'][0]['token']
@@ -164,8 +221,7 @@ def initializeDevice(user, location):
     global token
     global device_token
     url = base_url + '/init/device'
-    payload = '{"API_KEY": "' + api_key + '", "data": {"device_id": "' + device_id + '", "lat": ' + str(location[0]) + \
-              ', "lon": ' + str(location[1]) + '}}'
+    payload = '{"API_KEY": "' + api_key + '", "data": {"device_id": "' + device_id + '", "lat": 34.103, "lon": -118.326}}'
     response = requests.request('POST', url, data=payload, headers=header)
     print response
     print 'device initialized'
@@ -183,16 +239,22 @@ def getContent(user):
     """
     global token
     global active_campaigns
+    global offline_campaigns
     global displayed_campaigns
     global state
+    global device_id
     getCurrentLocation()
     url = base_url + '/get/content'
 
-    payload = '{"user": "' + user + '", "code": "' + token + '", "API_KEY": "' + api_key + '", "data": {"lat":' + \
-              str(state['location'][0]) + ', "lon": ' + str(state['location'][1]) + ', "cur_campaign": ' + \
-              str(state['current_campaign']) + ', "device_id": "' + device_id + '", "projector_left": 325, \
-              "projector_right": 326, "stats": ' + str(displayed_campaigns) + '}}'
-
+    payload = '{"user": "' + user +\
+    '", "code": "' + token +\
+    '", "API_KEY": "' + api_key +\
+    '", "data": {"lat":' + str(state['location'][0]) +\
+    ', "lon": ' + str(state['location'][1]) +\
+    ', "cur_campaign": ' + str(state['current_campaign']) +\
+    ', "device_id": "' + state['device_id'] +\
+    '", "projector_left": 325, "projector_right": 326, "stats": []}} '
+    #print payload
     # payload = '{"user": "' + user + '", "code": "' + token + '", "API_KEY": "' + api_key + \
     #           '", "data": {"lat":' + str(location[0]) + ', "lon": ' + str(location[1]) + ', "cur_campaign": 2342, "device_id": "' + device_id + \
     #           '", "projector_left": 325, "projector_right": 326, "stats": [ {"time": "2017-02-21 13:32:21", \
@@ -204,8 +266,10 @@ def getContent(user):
 
     response = requests.request('POST', url, data=payload, headers=header)
     response_dict = json.loads(response.text)
+    print response_dict
     camp_list = response_dict['data']
     active_campaigns = []  # Start over with fresh list of campaigns
+    offline_campaigns = []  # Ditto
     if len(camp_list) == 0:  # There are no campaigns to show, so go with default
         cm = {}
         cm['id'] = 1
@@ -215,6 +279,8 @@ def getContent(user):
         cm['distance'] = 99
         cm['duration'] = 99
         cm['advertiser'] = 'ADWAY'
+        cm['left_dir'] = sysparam.image_dir + 'ADWAY/left/'
+        cm['right_dir'] = sysparam.image_dir + 'ADWAY/right/'
         cm['image_left'] = 'https://s3.amazonaws.com/adwayusa/website/ADWAY_BW_right.jpg'
         cm['image_right'] = 'https://s3.amazonaws.com/adwayusa/website/ADWAY_BW_right.jpg'
         cm['logo_link'] = 'https://s3.amazonaws.com/adwayusa/ads/UllbRsLkao_logo.jpg'
@@ -223,48 +289,90 @@ def getContent(user):
 
         active_campaigns.append(cm)
         return
-
+    
+    # Or there are campaigns to show
     for i in range(len(camp_list)):
         cm = {}
         cm['id'] = camp_list[i]['id']
-        cm['name'] = camp_list[i]['name']
+        cm['name'] = camp_list[i]['name'].replace(' ', '')
         cm['latitude'] = camp_list[i]['lat']
         cm['longitude'] = camp_list[i]['lon']
         cm['distance'] = camp_list[i]['distance']
         cm['duration'] = camp_list[i]['duration']
         cm['advertiser'] = camp_list[i]['advertiser']
-        cm['image_left'] = camp_list[i]['content_left']
-        cm['image_right'] = camp_list[i]['content_right']
+        cm['image_left_loc'] = camp_list[i]['content_left']
+        cm['image_right_loc'] = camp_list[i]['content_right']
         cm['logo_link'] = camp_list[i]['content_logo']
         cm['price'] = camp_list[i]['pay_per_minute']
         cm['priority'] = camp_list[i]['priority']
 
-        active_campaigns.append(cm)
-    return
+        # Download images and save to appropriate dirs
+        # Make dirs if necessary
+        if not os.path.exists(sysparam.image_dir + cm['advertiser'] + '/' + cm['name']):
+            os.makedirs(sysparam.image_dir + cm['advertiser'] + '/' + cm['name'])
+            # ~/Adway/images/ADWAY/Caliente
+        if not os.path.exists(sysparam.image_dir + '/' + cm['advertiser'] + '/' + cm['name'] + '/left/'):
+            os.makedirs(sysparam.image_dir + '/' + cm['advertiser'] + '/' + cm['name'] + '/left/')
+            # ~/Adway/images/ADWAY/Caliente/left
+        left_dir = sysparam.image_dir + cm['advertiser'] + '/' + cm['name'] + '/left/'
+        if not os.path.exists(sysparam.image_dir + cm['advertiser'] + '/' + cm['name'] + '/right/'):
+            os.makedirs(sysparam.image_dir + cm['advertiser'] + '/' + cm['name'] + '/right/')
+        right_dir = sysparam.image_dir + cm['advertiser'] + '/' + cm['name'] + '/right/'
 
+        # Download images if they don't exist already
+        il_name = cm['image_left_loc'].split('/')[-1] 
+        ir_name = cm['image_right_loc'].split('/')[-1]
+        if not os.path.isfile(left_dir + il_name): 
+            os.system('wget -P ' + left_dir + ' ' + cm['image_left_loc'])
+        if not os.path.isfile(right_dir + ir_name):
+            os.system('wget -P ' + right_dir + ' ' + cm['image_right_loc'])
+        
+        cm['image_left'] = left_dir + il_name
+        cm['image_right'] = right_dir + ir_name
+        cm['left_dir'] = left_dir
+        cm['right_dir'] = right_dir
+        
+        active_campaigns.append(cm)
+
+    for camp in active_campaigns:
+        offline_campaigns.append(camp)
+    # with open ('campaigns.txt', 'w') as f:
+    #     f.write(str(active_campaigns))
+
+    return
 
 def main():
     global state
     global active_campaigns
     global displayed_campaigns
+    global offline_campaigns
+    print 'initiating state'
     initiateState()
+    print 'logging in'
     login('wolframdonat@gmail.com', '5mudg301', state['location'])
+    print 'initializing device'
     initializeDevice('wolframdonat@gmail.com', state['location'])
-    initiateProjector()
+    # print 'initiating projector'
+    # initiateProjector()
     getCurrentLocation()
-    displayDefaultImage()
-    getContent('wolframdonat@gmail.com')
-    print active_campaigns
-#    for i in range(len(active_campaigns)):
-#        displayCampaign(active_campaigns[i])
+    print 'current location is: lat: ', str(state['location'][0]), ' lon: ', str(state['location'][1])
+    # displayDefaultImage()
+
+    while True:
+        # Check if we have an active internet connection
+        if internet():
+            print 'Have connection, getting fresh campaigns'
+            getContent('wolframdonat@gmail.com')
+            for i in range(len(active_campaigns)):
+                displayCampaign(active_campaigns[i])
+        else:
+            for i in range(len(offline_campaigns)):
+                displayCampaign(offline_campaigns[i])
+        #    fillInCampaigns()
+        #for i in range(len(active_campaigns)):
+        #    displayCampaign(active_campaigns[i])
 
 
 if __name__ == '__main__':
     main()
 
-# img = Image.open('/home/wolf/Pictures/dsd-2.png')
-# img.show()
-#file1 = subprocess.call(['firefox', '/home/wolf/Pictures/dsd-1.png'])
-#time.sleep(5)
-#file1.terminate()
-#file1.kill()
