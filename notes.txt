@@ -1,0 +1,19 @@
+To start program at startup:
+
+On stretch versions before 11/18:
+   edit /home/pi/.config/lxsessions/LXDE/autostart
+
+   make it look like:
+   DISPLAY=:0
+   /usr/bin/python /home/pi/Code/adway-controller/display_images.py
+
+Not sure how to do autostart on newer versions of stretch - still looking
+
+To run the program as it currently exists on a Pi:
+
+sudo apt-get install feh
+sudo apt-get install python-bluez
+pip install --user psutil
+
+sudo raspi-config
+enable camera
