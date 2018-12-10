@@ -7,6 +7,7 @@ import os
 import signal
 import requests
 import socket
+from bluetooth import *
 #from picamera import PiCamera
 
 api_key = sysparam.api_key
@@ -21,6 +22,11 @@ global device_token
 
 active_campaigns = []  # List of campaigns to show
 offline_campaigns = []  # mirrors last list of active camps for connectivity drops
+
+def getBluetooth():
+    nearby_devices = discover_devices(lookup_names = True)
+    print 'found %d devices' % len(nearby_devices)
+    return len(nearby_devices)
 
 def internet(host='8.8.8.8', port=53, timeout=3):
     try:
@@ -123,16 +129,16 @@ def initiateProjector():
     return
 
 
-# This function only works on the Raspberry Pi
-# def takePhoto(advertiser, campaign, location):
-#     camera = PiCamera()
-#     camera.resolution = (1024, 768)
-#     camera.start_preview()  # perhaps not necessary?
-#     # See if correct directory exists; if not, create it:
-#     if not os.path.exists(sysparam.image_dir + '/' + advertiser):
-#         os.makedirs(sysparam.image_dir + '/' + advertiser)
-#     camera.capture(sysparam.image_dir + '/' + advertiser + '/' + str(campaign) + '_' + str(location[0]) + '_' +
-#                    str(location[1]) + datetime.datetime.today().strftime('%Y-%m-%d-%H:%M:%S') + '.jpg')
+This function only works on the Raspberry Pi
+def takePhoto(advertiser, campaign, location):
+    camera = PiCamera()
+    camera.resolution = (1024, 768)
+    camera.start_preview()  # perhaps not necessary?
+    # See if correct directory exists; if not, create it:
+    if not os.path.exists(sysparam.image_dir + '/' + advertiser):
+        os.makedirs(sysparam.image_dir + '/' + advertiser)
+    camera.capture(sysparam.image_dir + '/' + advertiser + '/' + str(campaign) + '_' + str(location[0]) + '_' +
+                   str(location[1]) + datetime.datetime.today().strftime('%Y-%m-%d-%H:%M:%S') + '.jpg')
 
 
 def displayCampaign(campaign):
