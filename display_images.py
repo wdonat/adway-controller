@@ -4,7 +4,6 @@
 import time
 import psutil
 import os
-import sysparam
 
 def displayImage(img_dir, dur):
   # Display image
@@ -20,12 +19,12 @@ def displayImage(img_dir, dur):
 def main():
 
   images = ['JP', 'AD', 'logo', 'AA', 'web', 'lakers']
-  JP = os.path.expanduser('~/ADWAY/' + 'JP')
-  AD = os.path.expanduser('~/ADWAY/' + 'AD')
-  logo = os.path.expanduser('~/ADWAY/' + 'logo')
-  AA = os.path.expanduser('~/ADWAY/' + 'AA')
-  web = os.path.expanduser('~/ADWAY/' + 'web')
-  lakers = os.path.expanduser('~/ADWAY/' + 'lakers')
+  JP = os.path.expanduser('~/ADWAY/JP')
+  AD = os.path.expanduser('~/ADWAY/AD')
+  logo = os.path.expanduser('~/ADWAY/logo')
+  AA = os.path.expanduser('~/ADWAY/AA')
+  web = os.path.expanduser('~/ADWAY/web')
+  lakers = os.path.expanduser('~/ADWAY/lakers')
 
   while True:
       displayImage(JP, 8)
@@ -38,19 +37,3 @@ def main():
 
 if __name__ == '__main__':
   main()
-
-
-# while True:      
-#       os.system('feh --hide-pointer -x -q black -g 1366x768 ~/Adway/images/ADWAY/left/ &')
-#       time.sleep(5)
-#       for process in psutil.process_iter():
-#       	  if 'feh' in process.cmdline():
-# 	     process.terminate()
-
-#       os.system('feh --hide-pointer -x -q black -g 1366x768 ~/Adway/images/ADWAY/right/ &')
-#       time.sleep(5)
-#       for process in psutil.process_iter():
-#           if 'feh' in process.cmdline():
-# 	      process.terminate()
-	      
-
