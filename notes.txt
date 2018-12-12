@@ -17,3 +17,16 @@ pip install --user psutil
 
 sudo raspi-config
 enable camera
+
+To create a demo version:
+edit the autostart file as above
+mkdir Code
+mkdir Code/adway-controller
+mkdir ADWAY
+mkdir ADWAY/AA
+mkdir ADWAY/AD
+mkdir ADWAY/JP
+mkdir ADWAY/web
+mkdir ADWAY/logo
+mkdir ADWAY/lakers   (subject to change, edit display-images accordingly)
+copy over display_images.py as well as appropriate images (P or D) into image folders
