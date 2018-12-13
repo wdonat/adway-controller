@@ -1,6 +1,6 @@
 To start program at startup:
 
-On stretch versions before 11/18:
+On stretch versions before 11/18 (i.e. 2018-10-09-raspbian-stretch.img):
    edit /home/pi/.config/lxsessions/LXDE/autostart
 
    make it look like:
@@ -8,6 +8,9 @@ On stretch versions before 11/18:
    /usr/bin/python /home/pi/Code/adway-controller/display_images.py
 
 Not sure how to do autostart on newer versions of stretch - still looking
+EDIT: apparently, this will still work, but 
+It's the still the same, but you have to copy in the contents of the global autostart file (/etc/xdg/lxsession/LXDE-pi/autostart)
+It's still the same BUT they haven't included the directories or the autostart file, you need to do that yourself or go back to the xdg version. Will investigate further
 
 To run the program as it currently exists on a Pi:
 
