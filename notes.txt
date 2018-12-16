@@ -33,3 +33,16 @@ mkdir ADWAY/web
 mkdir ADWAY/logo
 mkdir ADWAY/lakers   (subject to change, edit display-images accordingly)
 copy over display_images.py as well as appropriate images (P or D) into image folders
+
+To enable the GPS:
+Vin on the GPS -> 3.3V on the Pi
+GND -> GND
+Rx -> pin 8
+Tx -> pin 10
+
+In terminal:
+sudo gpsd /dev/tty/S0 -F /var/run/gpsd.sock
+
+cgps -s
+
+will let you know if you have a fix

@@ -8,13 +8,27 @@ import signal
 import requests
 import socket
 from bluetooth import *
-#from picamera import PiCamera
+from picamera import PiCamera
+from gps import *
+import threading
 
 api_key = sysparam.api_key
 base_url = sysparam.base_url
 device_id = sysparam.device_id
 header = {'Content-Type': 'application/json', 'cache-control': 'no-cache'}
 state = {}
+
+class GpsPoller(threading.Thread):
+    def __init__(self):
+        threading.Thread.__init__(self)
+        global gpsd
+        gpsd = gps(mode=WATCH_ENABLE)
+        self.current_value = None
+        self.running = True
+
+    def run(self):
+        global gpsd
+        gpsd.next()
 
 global token
 global device_token
@@ -23,6 +37,8 @@ global device_token
 active_campaigns = []  # List of campaigns to show
 offline_campaigns = []  # mirrors last list of active camps for connectivity drops
 
+# Herein lies the problem: if a Bluetooth device is not in 'discoverable' mode,
+# it will not show up on scans!!!
 def getBluetooth():
     nearby_devices = discover_devices(lookup_names = True)
     print 'found %d devices' % len(nearby_devices)
@@ -85,7 +101,6 @@ def initiateState():
     else:
         state['orientation'] = 'RIGHT'
     state['device_id'] = device_id
-    print state
     return
 
 
@@ -100,22 +115,20 @@ def displayImage(img_dir, dur):
     return
 
 
-def displayDefaultImage():
-    default_dir = sysparam.image_dir + 'ADWAY/right/'
-    displayImage(default_dir, 10)
-    return
-
-
 def getCurrentLocation():
     """
     Read from GPS unit, update state with current location
     :return:
     """
     global state
+    global gpsd
 
     # hard-coded for demo
     lat = '34.103'
     lon = '-118.326'
+    lat = str(gpsd.fix.latitude * 100)
+    lon = str(gpsd.fix.longitude * 100)
+
     location = (lat, lon)
     state['location'] = location
     print state['location']
@@ -348,37 +361,42 @@ def getContent(user):
     return
 
 def main():
+    return
+
+if __name__ == '__main__':
+    gpsp = GpsPoller()
     global state
     global active_campaigns
     global displayed_campaigns
     global offline_campaigns
-    print 'initiating state'
-    initiateState()
-    print 'logging in'
-    login('wolframdonat@gmail.com', '5mudg301', state['location'])
-    print 'initializing device'
-    initializeDevice('wolframdonat@gmail.com', state['location'])
-    # print 'initiating projector'
-    # initiateProjector()
-    getCurrentLocation()
-    print 'current location is: lat: ', str(state['location'][0]), ' lon: ', str(state['location'][1])
-    # displayDefaultImage()
+    try:
+        gpsp.start()
+        print 'initiating state'
+        initiateState()
+        print 'logging in'
+        login('wolframdonat@gmail.com', '5mudg301', state['location'])
+        print 'initializing device'
+        initializeDevice('wolframdonat@gmail.com', state['location'])
+        # print 'initiating projector'
+        # initiateProjector()
+        getCurrentLocation()
+        print 'current location is: lat: ', str(state['location'][0]), ' lon: ', str(state['location'][1])
 
-    while True:
-        # Check if we have an active internet connection
-        if internet():
-            print 'Have connection, getting fresh campaigns'
-            getContent('wolframdonat@gmail.com')
-            for i in range(len(active_campaigns)):
-                displayCampaign(active_campaigns[i])
-        else:
-            for i in range(len(offline_campaigns)):
-                displayCampaign(offline_campaigns[i])
-        #    fillInCampaigns()
-        #for i in range(len(active_campaigns)):
-        #    displayCampaign(active_campaigns[i])
+        while True:
+            # Check if we have an active internet connection
+            if internet():
+                print 'Have connection, getting fresh campaigns'
+                getContent('wolframdonat@gmail.com')
+                for i in range(len(active_campaigns)):
+                    displayCampaign(active_campaigns[i])
+            else:
+                for i in range(len(offline_campaigns)):
+                    displayCampaign(offline_campaigns[i])
 
+    except(KeyboardInterrupt, SystemExit):
+        gpsp.running = False
+        gpsp.join()
+        
 
-if __name__ == '__main__':
-    main()
+            
 
