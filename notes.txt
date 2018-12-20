@@ -40,6 +40,8 @@ GND -> GND
 Rx -> pin 8
 Tx -> pin 10
 
+In raspi-config: disable serial port (this is necessary to free up /dev/ttyS0)
+
 In terminal:
 sudo gpsd /dev/tty/S0 -F /var/run/gpsd.sock
 
