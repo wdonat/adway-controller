@@ -1,0 +1,3 @@
+sudo gpsd /dev/ttyS0 -F /var/run/gpsd.sock
+DISPLAY=:0
+/usr/bin/python /home/pi/Code/adway-controller/display_images.py
