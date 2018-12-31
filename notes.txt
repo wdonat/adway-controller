@@ -17,6 +17,14 @@ To run the program as it currently exists on a Pi:
 sudo apt-get install feh
 sudo apt-get install python-bluez
 pip install --user psutil
+sudo apt-get install libglib2.0-dev libbluetooth-dev
+pip install --user bluepy
+sudo pip install bluepy
+wget ftp://ftp.digifail.com/software/bluelog/bluelog-1.1.2.tar.gz
+tar xzvf bluelog-1.1.2.tar.gz
+cd bluelog-1.1.2
+make
+sudo make install
 
 sudo raspi-config
 enable camera
@@ -48,3 +56,5 @@ sudo gpsd /dev/tty/S0 -F /var/run/gpsd.sock
 cgps -s
 
 will let you know if you have a fix
+
+sudo apt-get install libbluetooth-dev
