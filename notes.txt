@@ -4,8 +4,9 @@ On stretch versions before 11/18 (i.e. 2018-10-09-raspbian-stretch.img):
    edit /home/pi/.config/lxsessions/LXDE/autostart
 
    make it look like:
+   sudo gpsd /dev/ttyS0 -F /var/run/gpsd.sock
    DISPLAY=:0
-   /usr/bin/python /home/pi/Code/adway-controller/display_images.py
+   sudo /usr/bin/python /home/pi/Code/adway-controller/display_images.py
 
 Not sure how to do autostart on newer versions of stretch - still looking
 EDIT: apparently, this will still work, but 
@@ -50,8 +51,13 @@ Tx -> pin 10
 
 In raspi-config: disable serial port (this is necessary to free up /dev/ttyS0)
 
+You also have to disable the gpsd systemctl:
+
+sudo systemctl stop gpsd.socket
+sudo systemctl disable gpsd.socket
+
 In terminal:
-sudo gpsd /dev/tty/S0 -F /var/run/gpsd.sock
+sudo gpsd /dev/ttyS0 -F /var/run/gpsd.sock
 
 cgps -s
 
