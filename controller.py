@@ -106,7 +106,7 @@ def initiateState():
 
 def displayImage(img_dir, dur):
     # Display image
-    os.system('feh --hide-pointer -x -q black -g 1366x768 ' + img_dir + ' &')
+    os.system('feh --hide-pointer -x -q black -g 1280x720 ' + img_dir + ' &')
     time.sleep(dur)
     # Clear image
     for process in psutil.process_iter():
@@ -142,7 +142,7 @@ def initiateProjector():
     return
 
 
-This function only works on the Raspberry Pi
+#This function only works on the Raspberry Pi
 def takePhoto(advertiser, campaign, location):
     camera = PiCamera()
     camera.resolution = (1024, 768)

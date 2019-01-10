@@ -6,6 +6,10 @@ import psutil
 import os
 from gps import *
 import threading
+import platform
+from bluepy.btle import Scanner, DefaultDelegate
+
+global arch
 
 class GpsPoller(threading.Thread):
     def __init__(self):
@@ -18,11 +22,21 @@ class GpsPoller(threading.Thread):
         global gpsd
         while gpsp.running:
             gpsd.next()
+            
+class ScanDelegate(DefaultDelegate):
+    def __init__(self):
+        DefaultDelegate.__init__(self)
 
-def displayImage(img_dir, dur):
+def displayImage(img_dir, dur, adv, camp, loc):
+    global arch
     # Display image
-    os.system('feh --hide-pointer -x -q black -g 1366x768 ' + img_dir + ' &')
-    time.sleep(dur)
+    os.system('feh --hide-pointer -x -q -B black -g 1280x720 ' + img_dir + ' &')
+    if arch == 'x86_64':
+        time.sleep(dur)
+    else:
+        time.sleep(dur/2)
+        takePhoto(adv, camp, loc)
+        time.sleep(dur/2)
 
     # Clear image
     for process in psutil.process_iter():
@@ -30,14 +44,29 @@ def displayImage(img_dir, dur):
             process.terminate()
     return
 
+def takePhoto(advertiser, campaign, location):
+    camera = PiCamera()
+    camera.resolution = (640, 480)
+    camera.start_preview()  # perhaps not necessary?
+    # See if correct directory exists; if not, create it:
+    if not os.path.exists(sysparam.image_dir + '/' + advertiser):
+        os.makedirs(sysparam.image_dir + '/' + advertiser)
+    camera.capture(sysparam.image_dir + '/' + advertiser + '/' + str(campaign) + '_' + str(location[0]) + '_' +
+                   str(location[1]) + datetime.datetime.today().strftime('%Y-%m-%d-%H:%M:%S') + '.jpg')
+    return
+
 
 if __name__ == '__main__':
+    global arch
+
     gpsp = GpsPoller()
-    JP = os.path.expanduser('~/ADWAY/JP')
-    AD = os.path.expanduser('~/ADWAY/AD')
-    logo = os.path.expanduser('~/ADWAY/logo')
-    AA = os.path.expanduser('~/ADWAY/AA')
-    web = os.path.expanduser('~/ADWAY/web')
+    JP = '/home/pi/ADWAY/JP'
+    AD = '/home/pi/ADWAY/AD'
+    logo = '/home/pi/ADWAY/logo'
+    AA = '/home/pi/ADWAY/AA'
+    web = '/home/pi/ADWAY/web'
+    arch = platform.machine()
+
     try:
         gpsp.start()
         while True:
@@ -46,45 +75,61 @@ if __name__ == '__main__':
                 lat = 'N'
             else:
                 lat = 'S'
-            latString = str(abs(round(gpsd.fix.latitude, 2)))
-            lonString = str(abs(round(gpsd.fix.longitude, 2)))
+            latString = str(abs(round(gpsd.fix.latitude, 4)))
+            lonString = str(round(gpsd.fix.longitude, 4))
+            spdString = str(round(gpsd.fix.speed, 4) * 1.60934)  # Converting MPH to KPH
             dateString = str(gpsd.utc)
+
+            scanner = Scanner().withDelegate(ScanDelegate())
+            devices = scanner.scan(2.0)
+  
             with open('/home/pi/ADWAY/gps.txt', 'a') as f:
+                f.write('Devices - ' + str(len(devices)) + '\n')
                 f.write('JP - ' + dateString + '\n')
                 f.write(latString + ', ' + lonString + '\n')
-            displayImage(JP, 8)
+                f.write(spdString + 'kph\n')
+            displayImage(JP, 8, 'JP', '1', (latString, lonString))
 
-            latString = str(abs(round(gpsd.fix.latitude, 2)))
-            lonString = str(abs(round(gpsd.fix.longitude, 2)))
+            latString = str(abs(round(gpsd.fix.latitude, 4)))
+            lonString = str(round(gpsd.fix.longitude, 4))
             dateString = str(gpsd.utc)
+            spdString = str(round(gpsd.fix.speed, 4) * 1.60934)  # Converting MPH to KPH
             with open('/home/pi/ADWAY/gps.txt', 'a') as f:
                 f.write('AD - ' + dateString + '\n')
                 f.write(latString + ', ' + lonString + '\n')
-            displayImage(AD, 10)
+                f.write(spdString + 'kph\n')
+            displayImage(AD, 10, 'AD', '1', (latString, lonString))
 
-            latString = str(abs(round(gpsd.fix.latitude, 2)))
-            lonString = str(abs(round(gpsd.fix.longitude, 2)))
+            latString = str(abs(round(gpsd.fix.latitude, 4)))
+            lonString = str(round(gpsd.fix.longitude, 4))
             dateString = str(gpsd.utc)
+            spdString = str(round(gpsd.fix.speed, 4) * 1.60934)  # Converting MPH to KPH
             with open('/home/pi/ADWAY/gps.txt', 'a') as f:
                 f.write('logo - ' + dateString + '\n')
                 f.write(latString + ', ' + lonString + '\n')
-            displayImage(logo, 5)
+                f.write(spdString + 'kph\n')
+            displayImage(logo, 5, 'logo', '1', (latString, lonString))
 
-            latString = str(abs(round(gpsd.fix.latitude, 2)))
-            lonString = str(abs(round(gpsd.fix.longitude, 2)))
+            latString = str(abs(round(gpsd.fix.latitude, 4)))
+            lonString = str(round(gpsd.fix.longitude, 4))
             dateString = str(gpsd.utc)
+            spdString = str(round(gpsd.fix.speed, 4) * 1.60934)  # Converting MPH to KPH
             with open('/home/pi/ADWAY/gps.txt', 'a') as f:
                 f.write('AA - ' + dateString + '\n')
                 f.write(latString + ', ' + lonString + '\n')
-            displayImage(AA, 10)
+                f.write(spdString + 'kph\n')
+            displayImage(AA, 10, 'AA', '1', (latString, lonString))
 
-            latString = str(abs(round(gpsd.fix.latitude, 2)))
-            lonString = str(abs(round(gpsd.fix.longitude, 2)))
+            latString = str(abs(round(gpsd.fix.latitude, 4)))
+            lonString = str(round(gpsd.fix.longitude, 4))
             dateString = str(gpsd.utc)
+            spdString = str(round(gpsd.fix.speed, 4) * 1.60934)  # Converting MPH to KPH
             with open('/home/pi/ADWAY/gps.txt', 'a') as f:
                 f.write('web - ' + dateString + '\n')
                 f.write(latString + ', ' + lonString + '\n')
-            displayImage(web, 15)
+                f.write(spdString + 'kph\n')
+                f.write('\n')
+            displayImage(web, 15, 'web', '1', (latString, lonString))
             
     except(KeyboardInterrupt, SystemExit):
         gpsp.running = False
