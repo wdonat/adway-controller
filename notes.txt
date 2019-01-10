@@ -4,9 +4,8 @@ On stretch versions before 11/18 (i.e. 2018-10-09-raspbian-stretch.img):
    edit /home/pi/.config/lxsessions/LXDE/autostart
 
    make it look like:
-   sudo gpsd /dev/ttyS0 -F /var/run/gpsd.sock
    DISPLAY=:0
-   sudo /usr/bin/python /home/pi/Code/adway-controller/display_images.py
+   /usr/bin/python /home/pi/Code/adway-controller/display_images.py
 
 Not sure how to do autostart on newer versions of stretch - still looking
 EDIT: apparently, this will still work, but 
@@ -18,6 +17,7 @@ To run the program as it currently exists on a Pi:
 sudo apt-get install feh
 sudo apt-get install python-bluez
 pip install --user psutil
+sudo pip install psutil
 sudo apt-get install libglib2.0-dev libbluetooth-dev
 pip install --user bluepy
 sudo pip install bluepy
@@ -26,6 +26,9 @@ tar xzvf bluelog-1.1.2.tar.gz
 cd bluelog-1.1.2
 make
 sudo make install
+sudo apt-get install gpsd gpsd-clients
+sudo systemctl stop gpsd.socket
+sudo systemctl disable gpsd.socket
 
 sudo raspi-config
 enable camera
@@ -49,12 +52,7 @@ GND -> GND
 Rx -> pin 8
 Tx -> pin 10
 
-In raspi-config: disable serial port (this is necessary to free up /dev/ttyS0)
-
-You also have to disable the gpsd systemctl:
-
-sudo systemctl stop gpsd.socket
-sudo systemctl disable gpsd.socket
+In raspi-config: enable serial port but ensure serial console is disabled (this is necessary to free up /dev/ttyS0)
 
 In terminal:
 sudo gpsd /dev/ttyS0 -F /var/run/gpsd.sock
