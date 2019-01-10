@@ -247,7 +247,7 @@ def initializeDevice(user, location):
     return
 
 
-def getContent(user):
+def getContent(user, latitude, longitude):
     """
     Sends current device data as well as getting new data from the server
     regarding campaigns
@@ -262,14 +262,14 @@ def getContent(user):
     global displayed_campaigns
     global state
     global device_id
-    getCurrentLocation()
+    
     url = base_url + '/get/content'
 
     payload = '{"user": "' + user +\
     '", "code": "' + token +\
     '", "API_KEY": "' + api_key +\
-    '", "data": {"lat":' + str(state['location'][0]) +\
-    ', "lon": ' + str(state['location'][1]) +\
+    '", "data": {"lat":' + latitude +\
+    ', "lon": ' + longitude +\
     ', "cur_campaign": ' + str(state['current_campaign']) +\
     ', "device_id": "' + state['device_id'] +\
     '", "projector_left": 325, "projector_right": 326, "stats": []}} '
@@ -369,16 +369,23 @@ if __name__ == '__main__':
     global active_campaigns
     global displayed_campaigns
     global offline_campaigns
+
+    print 'initiating state'
+    initiateState()
+
+    print 'logging in'
+    login('wolframdonat@gmail.com', '5mudg301', state['location'])
+
+    print 'initializing device'
+    initializeDevice('wolframdonat@gmail.com', state['location'])
+
+
     try:
-        gpsp.start()
-        print 'initiating state'
-        initiateState()
-        print 'logging in'
-        login('wolframdonat@gmail.com', '5mudg301', state['location'])
-        print 'initializing device'
-        initializeDevice('wolframdonat@gmail.com', state['location'])
-        # print 'initiating projector'
-        # initiateProjector()
+        gpsp.start() 
+
+
+        
+
         getCurrentLocation()
         print 'current location is: lat: ', str(state['location'][0]), ' lon: ', str(state['location'][1])
 
@@ -386,11 +393,19 @@ if __name__ == '__main__':
             # Check if we have an active internet connection
             if internet():
                 print 'Have connection, getting fresh campaigns'
-                getContent('wolframdonat@gmail.com')
+
+                # Get location
+                latString = str(abs(round(gpsd.fix.latitude, 2)))
+                lonString = str(abs(round(gpsd.fix.longitude, 2)))
+                dateString = str(gpsd.utc)
+
+                getContent('wolframdonat@gmail.com', latString, lonString)
+
                 for i in range(len(active_campaigns)):
                     displayCampaign(active_campaigns[i])
             else:
                 for i in range(len(offline_campaigns)):
+
                     displayCampaign(offline_campaigns[i])
 
     except(KeyboardInterrupt, SystemExit):
