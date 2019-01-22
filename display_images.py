@@ -1,13 +1,25 @@
 # Get images in one directory
 # feh in that directory
-
+import sysparam
+import datetime
 import time
 import psutil
 import os
 from gps import *
 import threading
 import platform
+
 from bluepy.btle import Scanner, DefaultDelegate
+from picamera import PiCamera
+
+global camera_exists
+
+try:
+    camera = PiCamera()
+    camera_exists = 1
+except:
+    camera_exists = 0
+
 
 global arch
 
@@ -29,14 +41,18 @@ class ScanDelegate(DefaultDelegate):
 
 def displayImage(img_dir, dur, adv, camp, loc):
     global arch
+    global camera_exists
     # Display image
     os.system('feh --hide-pointer -x -q -B black -g 1280x720 ' + img_dir + ' &')
     if arch == 'x86_64':
         time.sleep(dur)
     else:
-        time.sleep(dur/2)
-        takePhoto(adv, camp, loc)
-        time.sleep(dur/2)
+        if camera_exists == 1:
+            time.sleep(dur/2)
+            takePhoto(adv, camp, loc)
+            time.sleep(dur/2)
+        else:
+            time.sleep(dur)
 
     # Clear image
     for process in psutil.process_iter():
@@ -45,9 +61,9 @@ def displayImage(img_dir, dur, adv, camp, loc):
     return
 
 def takePhoto(advertiser, campaign, location):
-    camera = PiCamera()
+
     camera.resolution = (640, 480)
-    camera.start_preview()  # perhaps not necessary?
+
     # See if correct directory exists; if not, create it:
     if not os.path.exists(sysparam.image_dir + '/' + advertiser):
         os.makedirs(sysparam.image_dir + '/' + advertiser)
@@ -88,7 +104,7 @@ if __name__ == '__main__':
                 f.write('JP - ' + dateString + '\n')
                 f.write(latString + ', ' + lonString + '\n')
                 f.write(spdString + 'kph\n')
-            displayImage(JP, 8, 'JP', '1', (latString, lonString))
+            displayImage(JP, 10, 'JP', '1', (latString, lonString))
 
             latString = str(abs(round(gpsd.fix.latitude, 4)))
             lonString = str(round(gpsd.fix.longitude, 4))
@@ -98,17 +114,28 @@ if __name__ == '__main__':
                 f.write('AD - ' + dateString + '\n')
                 f.write(latString + ', ' + lonString + '\n')
                 f.write(spdString + 'kph\n')
-            displayImage(AD, 10, 'AD', '1', (latString, lonString))
+            displayImage(AD, 8, 'AD', '1', (latString, lonString))
+
+            # latString = str(abs(round(gpsd.fix.latitude, 4)))
+            # lonString = str(round(gpsd.fix.longitude, 4))
+            # dateString = str(gpsd.utc)
+            # spdString = str(round(gpsd.fix.speed, 4) * 1.60934)  # Converting MPH to KPH
+            # with open('/home/pi/ADWAY/gps.txt', 'a') as f:
+            #     f.write('logo - ' + dateString + '\n')
+            #     f.write(latString + ', ' + lonString + '\n')
+            #     f.write(spdString + 'kph\n')
+            # displayImage(logo, 5, 'logo', '1', (latString, lonString))
 
             latString = str(abs(round(gpsd.fix.latitude, 4)))
             lonString = str(round(gpsd.fix.longitude, 4))
             dateString = str(gpsd.utc)
             spdString = str(round(gpsd.fix.speed, 4) * 1.60934)  # Converting MPH to KPH
             with open('/home/pi/ADWAY/gps.txt', 'a') as f:
-                f.write('logo - ' + dateString + '\n')
+                f.write('web - ' + dateString + '\n')
                 f.write(latString + ', ' + lonString + '\n')
                 f.write(spdString + 'kph\n')
-            displayImage(logo, 5, 'logo', '1', (latString, lonString))
+                f.write('\n')
+            displayImage(web, 8, 'web', '1', (latString, lonString))
 
             latString = str(abs(round(gpsd.fix.latitude, 4)))
             lonString = str(round(gpsd.fix.longitude, 4))
@@ -118,7 +145,7 @@ if __name__ == '__main__':
                 f.write('AA - ' + dateString + '\n')
                 f.write(latString + ', ' + lonString + '\n')
                 f.write(spdString + 'kph\n')
-            displayImage(AA, 10, 'AA', '1', (latString, lonString))
+            displayImage(AA, 8, 'AA', '1', (latString, lonString))
 
             latString = str(abs(round(gpsd.fix.latitude, 4)))
             lonString = str(round(gpsd.fix.longitude, 4))

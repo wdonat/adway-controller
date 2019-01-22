@@ -7,10 +7,24 @@ import os
 import signal
 import requests
 import socket
-from bluetooth import *
+import platform
+
 from picamera import PiCamera
 from gps import *
 import threading
+from bluepy.btle import Scanner, DefaultDelegate
+
+global camera_exists
+
+try:
+    camera = PiCamera()
+    camera_exists = 1
+except:
+    camera_exists = 0
+
+global token
+global device_token
+global arch
 
 api_key = sysparam.api_key
 base_url = sysparam.base_url
@@ -30,19 +44,14 @@ class GpsPoller(threading.Thread):
         global gpsd
         gpsd.next()
 
-global token
-global device_token
+class ScanDelegate(DefaultDelegate):
+    def __init__(self):
+        DefaultDelegate.__init__(self)
 
 
 active_campaigns = []  # List of campaigns to show
 offline_campaigns = []  # mirrors last list of active camps for connectivity drops
-
-# Herein lies the problem: if a Bluetooth device is not in 'discoverable' mode,
-# it will not show up on scans!!!
-def getBluetooth():
-    nearby_devices = discover_devices(lookup_names = True)
-    print 'found %d devices' % len(nearby_devices)
-    return len(nearby_devices)
+displayed_campaigns = []  # List of displayed campaigns & stats to send to server
 
 def internet(host='8.8.8.8', port=53, timeout=3):
     try:
@@ -86,15 +95,13 @@ def fillInCampaigns():
     cm['priority'] = 99
     active_campaigns.append(cm)
 
-displayed_campaigns = []  # List of displayed campaigns & stats to send to server
-# Use models.DisplayedModel as a template
-
 
 def initiateState():
     global state
     state['login'] = 'OFF'
     state['projector_status'] = 'OFF'
-    state['location'] = (34.103, -118.326)
+    state['location'] = (34.0368, -118.4499)
+    state['speed'] = 0
     state['current_campaign'] = 0
     if sysparam.orientation == 'LEFT':
         state['orientation'] = 'LEFT'
@@ -104,10 +111,21 @@ def initiateState():
     return
 
 
-def displayImage(img_dir, dur):
+def displayImage(img_dir, dur, adv, camp, loc):
+    global arch
+    global camera_exists
     # Display image
-    os.system('feh --hide-pointer -x -q black -g 1280x720 ' + img_dir + ' &')
-    time.sleep(dur)
+    os.system('feh --hide-pointer -x -q -B black -g 1280x720 ' + img_dir + ' &')
+    if arch == 'x86_64':
+        time.sleep(dur)
+    else:
+        if camera_exists == 1:
+            time.sleep(dur/2)
+            takePhoto(adv, camp, loc)
+            time.sleep(dur/2)
+        else:
+            time.sleep(dur)
+
     # Clear image
     for process in psutil.process_iter():
         if 'feh' in process.cmdline():
@@ -142,19 +160,19 @@ def initiateProjector():
     return
 
 
-#This function only works on the Raspberry Pi
 def takePhoto(advertiser, campaign, location):
-    camera = PiCamera()
-    camera.resolution = (1024, 768)
-    camera.start_preview()  # perhaps not necessary?
+
+    camera.resolution = (640, 480)
+
     # See if correct directory exists; if not, create it:
     if not os.path.exists(sysparam.image_dir + '/' + advertiser):
         os.makedirs(sysparam.image_dir + '/' + advertiser)
     camera.capture(sysparam.image_dir + '/' + advertiser + '/' + str(campaign) + '_' + str(location[0]) + '_' +
                    str(location[1]) + datetime.datetime.today().strftime('%Y-%m-%d-%H:%M:%S') + '.jpg')
+    return
 
 
-def displayCampaign(campaign):
+def displayCampaign(campaign, dvcs):
     """
     Displays images associated with campaign
     :param campaign: dict - see models.CampaignModel for template
@@ -162,13 +180,13 @@ def displayCampaign(campaign):
     """
     global state
     global displayed_campaigns
+
     displayed_campaign = {}
     duration = campaign['duration']
     if state['orientation'] == 'LEFT':
         image = campaign['image_left']
     else:
         image = campaign['image_right']
-    getCurrentLocation()
 
     displayed_campaign["campaign_id"] = campaign['id']
     displayed_campaign["lat"] = state['location'][0]
@@ -178,16 +196,15 @@ def displayCampaign(campaign):
     displayed_campaign["start_lon"] = state['location'][1]
     print 'campaign: ', campaign['id'], 'name: ', campaign['name'], 'duration: ', duration 
     if state['orientation'] == 'LEFT':
-        displayImage(campaign['left_dir'], duration)
+        displayImage(campaign['left_dir'], duration, campaign['advertiser'], campaign['id'], state['location'])
     else:
-        displayImage(campaign['right_dir'], duration)
+        displayImage(campaign['right_dir'], duration, campaign['advertiser'], campaign['id'], state['location'])
     # takePhoto(campaign['advertiser'], campaign['id'], state['location'])
-    getCurrentLocation()
     displayed_campaign["stop_lat"] = state['location'][0]
     displayed_campaign["stop_lon"] = state['location'][1]
     displayed_campaign["duration"] = duration
-    displayed_campaign["speed"] = 45
-    displayed_campaign["RT_impressions"] = 5
+    displayed_campaign["speed"] = state['speed']
+    displayed_campaign["RT_impressions"] = dvcs
 
     displayed_campaigns.append(displayed_campaign)
     return
@@ -247,7 +264,7 @@ def initializeDevice(user, location):
     return
 
 
-def getContent(user, latitude, longitude):
+def getContent(user, latitude, longitude, time, spd):
     """
     Sends current device data as well as getting new data from the server
     regarding campaigns
@@ -262,18 +279,28 @@ def getContent(user, latitude, longitude):
     global displayed_campaigns
     global state
     global device_id
+
+    print "getting content"
+    print state['location'][0]
+    print state['location'][1]
+
+    print token
+
+    scanner = Scanner().withDelegate(ScanDelegate())
+    devices = len(scanner.scan(2.0))
     
     url = base_url + '/get/content'
 
-    payload = '{"user": "' + user +\
-    '", "code": "' + token +\
-    '", "API_KEY": "' + api_key +\
-    '", "data": {"lat":' + latitude +\
-    ', "lon": ' + longitude +\
-    ', "cur_campaign": ' + str(state['current_campaign']) +\
-    ', "device_id": "' + state['device_id'] +\
-    '", "projector_left": 325, "projector_right": 326, "stats": []}} '
-    #print payload
+    stats = []
+    for i in range(len(displayed_campaigns)):
+        stats.append(displayed_campaigns[i])
+
+    sent_stats = str(stats)
+    sent_stats = sent_stats.replace("'", '"')
+
+    payload = '{"user": "' + sysparam.user + '", "code": "' + token + '", "API_KEY": "' + api_key + '", "data": {"lat":' + str(state['location'][0]) + ', "lon": ' + str(state['location'][1]) + ', "cur_campaign": ' + str(state['current_campaign']) + ', "device_id": "' + state['device_id'] + '", "projector_left": 325, "projector_right": 326, "stats": ' + sent_stats + '}} '
+
+    print payload
     # payload = '{"user": "' + user + '", "code": "' + token + '", "API_KEY": "' + api_key + \
     #           '", "data": {"lat":' + str(location[0]) + ', "lon": ' + str(location[1]) + ', "cur_campaign": 2342, "device_id": "' + device_id + \
     #           '", "projector_left": 325, "projector_right": 326, "stats": [ {"time": "2017-02-21 13:32:21", \
@@ -364,6 +391,9 @@ def main():
     return
 
 if __name__ == '__main__':
+    global arch
+    arch = platform.machine()
+
     gpsp = GpsPoller()
     global state
     global active_campaigns
@@ -374,39 +404,55 @@ if __name__ == '__main__':
     initiateState()
 
     print 'logging in'
-    login('wolframdonat@gmail.com', '5mudg301', state['location'])
+    login(sysparam.user, sysparam.password, state['location'])
 
     print 'initializing device'
-    initializeDevice('wolframdonat@gmail.com', state['location'])
+    initializeDevice(sysparam.user, state['location'])
 
 
     try:
         gpsp.start() 
-
-
-        
-
-        getCurrentLocation()
-        print 'current location is: lat: ', str(state['location'][0]), ' lon: ', str(state['location'][1])
-
         while True:
-            # Check if we have an active internet connection
+
+            if gpsd.fix.latitude > 0:
+                lat = 'N'
+            else:
+                lat = 'S'
+            latString = abs(round(gpsd.fix.latitude, 4))
+            lonString = round(gpsd.fix.longitude, 4)
+
+            if latString == 0.0 or lonString == 0.0:
+                latString = 34.0368
+                lonString = -118.4499
+            # if type(round(gpsd.fix.speed, 4)) == float:
+            #     spdString = int((round(gpsd.fix.speed, 4) * 1.60934))  # Converting MPH to KPH
+            # else:
+            #     spdString = 0
+            spdString = 0
+            dateString = str(gpsd.utc)
+            dateString = dateString.replace('_', ' ')
+            state['location'] = (latString, lonString)
+            state['speed'] = spdString
+
+            with open('/home/pi/ADWAY/gps.txt', 'a') as f:
+                f.write(latString + ', ' + lonString + '\n')
+                f.write(spdString + 'kph\n')
+                f.write('\n')
+
+            scanner = Scanner().withDelegate(ScanDelegate())
+            devices = len(scanner.scan(2.0))
+        
             if internet():
                 print 'Have connection, getting fresh campaigns'
 
-                # Get location
-                latString = str(abs(round(gpsd.fix.latitude, 2)))
-                lonString = str(abs(round(gpsd.fix.longitude, 2)))
-                dateString = str(gpsd.utc)
-
-                getContent('wolframdonat@gmail.com', latString, lonString)
+                getContent(sysparam.user, latString, lonString, dateString, spdString)
 
                 for i in range(len(active_campaigns)):
-                    displayCampaign(active_campaigns[i])
+                    displayCampaign(active_campaigns[i], devices)
             else:
                 for i in range(len(offline_campaigns)):
 
-                    displayCampaign(offline_campaigns[i])
+                    displayCampaign(offline_campaigns[i], devices)
 
     except(KeyboardInterrupt, SystemExit):
         gpsp.running = False
