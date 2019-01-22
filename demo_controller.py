@@ -74,13 +74,14 @@ def initiateState():
 def displayImage(img_dir, dur, adv, camp, loc):
     global arch
     global camera_exists
+    global count
 
     # Display image
     os.system('feh --hide-pointer -x -q -B black -g 1280x720 ' + img_dir + ' &')
     if arch == 'x86_64':
         time.sleep(dur)
     else:
-        if camera_exists == 1:
+        if camera_exists == 1 and count % 10 == 0:
             time.sleep(dur/2)
             takePhoto(adv, camp, loc)
             time.sleep(dur/2)
@@ -180,6 +181,7 @@ if __name__ == '__main__':
     campaign_four = '/home/pi/ADWAY/AA'
     camp_four_dur = 10
     camp_four_id = '4'
+    count = 0
 
     global state
     global active_campaigns
@@ -454,6 +456,8 @@ if __name__ == '__main__':
 			    payload = '{"user": "' + sysparam.user + '", "code": "' + token + '", "API_KEY": "' + api_key + '", "data": {"lat":' + str(state['location'][0]) + ', "lon": ' + str(state['location'][1]) + ', "cur_campaign": ' + str(state['current_campaign']) + ', "device_id": "' + state['device_id'] + '", "projector_left": 325, "projector_right": 326, "stats": ' + sent_stats + '}} '
 
 			    response = requests.request('POST', url, data=payload, headers=header)
+
+                count += 1
 
 			else:
 				continue
