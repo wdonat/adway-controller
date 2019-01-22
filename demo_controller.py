@@ -168,16 +168,16 @@ if __name__ == '__main__':
     arch = platform.machine()
 
     gpsp = GpsPoller()
-    campaign_one = '/home/pi/ADWAY/campaign_one'
+    campaign_one = '/home/pi/ADWAY/JP'
     camp_one_dur = 10
     camp_one_id = '1'
-    campaign_two = '/home/pi/ADWAY/campaign_two'
+    campaign_two = '/home/pi/ADWAY/AD'
     camp_two_dur = 10
     camp_two_id = '2'
-    campaign_three = '/home/pi/ADWAY/campaign_three'
+    campaign_three = '/home/pi/ADWAY/web'
     camp_three_dur = 10
     camp_three_id = '3'
-    campaign_four = '/home/pi/ADWAY/campaign_four'
+    campaign_four = '/home/pi/ADWAY/AA'
     camp_four_dur = 10
     camp_four_id = '4'
 
@@ -247,7 +247,7 @@ if __name__ == '__main__':
 		    displayed_campaign["start_lon"] = state['location'][1]
 		    displayed_campaign["stop_lat"] = state['location'][0]
 		    displayed_campaign["stop_lon"] = state['location'][1]
-		    displayed_campaign["duration"] = camp_one_dur
+		    displayed_campaign["duration"] = 10
 		    displayed_campaign["speed"] = state['speed']
 		    displayed_campaign["RT_impressions"] = devices
 
@@ -282,7 +282,7 @@ if __name__ == '__main__':
                 f.write('campaign_two - ' + dateString + '\n')
                 f.write(latString + ', ' + lonString + '\n')
                 f.write(spdString + 'kph\n')
-            displayImage(campaign_two, 10, 'campaign_two', '2', (latString, lonString))
+            displayImage(campaign_two, 8, 'campaign_two', '2', (latString, lonString))
 
 		    displayed_campaign["campaign_id"] = camp_two_id
 		    displayed_campaign["lat"] = state['location'][0]
@@ -292,7 +292,7 @@ if __name__ == '__main__':
 		    displayed_campaign["start_lon"] = state['location'][1]
 		    displayed_campaign["stop_lat"] = state['location'][0]
 		    displayed_campaign["stop_lon"] = state['location'][1]
-		    displayed_campaign["duration"] = camp_two_dur
+		    displayed_campaign["duration"] = 8
 		    displayed_campaign["speed"] = state['speed']
 		    displayed_campaign["RT_impressions"] = devices
 
@@ -327,7 +327,7 @@ if __name__ == '__main__':
                 f.write('campaign_three - ' + dateString + '\n')
                 f.write(latString + ', ' + lonString + '\n')
                 f.write(spdString + 'kph\n')
-            displayImage(campaign_three, 10, 'campaign_three', '3', (latString, lonString))
+            displayImage(campaign_three, 5, 'campaign_three', '3', (latString, lonString))
 
 		    displayed_campaign["campaign_id"] = camp_three_id
 		    displayed_campaign["lat"] = state['location'][0]
@@ -337,7 +337,7 @@ if __name__ == '__main__':
 		    displayed_campaign["start_lon"] = state['location'][1]
 		    displayed_campaign["stop_lat"] = state['location'][0]
 		    displayed_campaign["stop_lon"] = state['location'][1]
-		    displayed_campaign["duration"] = camp_three_dur
+		    displayed_campaign["duration"] = 5
 		    displayed_campaign["speed"] = state['speed']
 		    displayed_campaign["RT_impressions"] = devices
 
@@ -372,7 +372,7 @@ if __name__ == '__main__':
                 f.write('campaign_four - ' + dateString + '\n')
                 f.write(latString + ', ' + lonString + '\n')
                 f.write(spdString + 'kph\n')
-            displayImage(campaign_four, 10, 'campaign_four', '4', (latString, lonString))
+            displayImage(campaign_four, 8, 'campaign_four', '4', (latString, lonString))
 
             displayed_campaign = {}
 
@@ -384,11 +384,57 @@ if __name__ == '__main__':
 		    displayed_campaign["start_lon"] = state['location'][1]
 		    displayed_campaign["stop_lat"] = state['location'][0]
 		    displayed_campaign["stop_lon"] = state['location'][1]
-		    displayed_campaign["duration"] = camp_four_dur
+		    displayed_campaign["duration"] = 8
 		    displayed_campaign["speed"] = state['speed']
 		    displayed_campaign["RT_impressions"] = devices
 
 		    displayed_campaigns.append(displayed_campaign)
+
+
+
+            ###############################################################
+            displayed_campaign = {}
+            displayed_campaign['fix'] = True
+
+            latString = abs(round(gpsd.fix.latitude, 4))
+            lonString = round(gpsd.fix.longitude, 4)
+            if latString == 0.0 or lonString == 0.0:
+                latString = state['last_location'][0]
+                lonString = state['last_location'][1]
+                displayed_campaign['fix'] = False
+
+            try:
+                spdString = int((round(gpsd.fix.speed, 4) * 1.60934))  # Converting MPH to KPH
+            except:
+                spdString = 0
+
+            dateString = str(gpsd.utc)
+            dateString = dateString.replace('_', ' ')
+            state['location'] = (latString, lonString)
+            state['last_location'] = state['location']
+            state['speed'] = spdString
+
+            with open('/home/pi/ADWAY/gps.txt', 'a') as f:
+                f.write('Devices - ' + str(devices) + '\n')
+                f.write('campaign_three - ' + dateString + '\n')
+                f.write(latString + ', ' + lonString + '\n')
+                f.write(spdString + 'kph\n')
+            displayImage(campaign_three, 5, 'campaign_three', '3', (latString, lonString))
+
+            displayed_campaign["campaign_id"] = camp_three_id
+            displayed_campaign["lat"] = state['location'][0]
+            displayed_campaign["lon"] = state['location'][1]
+            displayed_campaign["time"] = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            displayed_campaign["start_lat"] = state['location'][0]
+            displayed_campaign["start_lon"] = state['location'][1]
+            displayed_campaign["stop_lat"] = state['location'][0]
+            displayed_campaign["stop_lon"] = state['location'][1]
+            displayed_campaign["duration"] = 5
+            displayed_campaign["speed"] = state['speed']
+            displayed_campaign["RT_impressions"] = devices
+
+            displayed_campaigns.append(displayed_campaign)
+
 
 
 ###################################################################################################################
