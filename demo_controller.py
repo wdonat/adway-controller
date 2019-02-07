@@ -9,7 +9,7 @@ import requests
 import socket
 import platform
 import logging
-import json
+import sys
 
 logging.basicConfig(filename='events.log',level=logging.DEBUG)
 
@@ -21,7 +21,6 @@ from bluepy.btle import Scanner, DefaultDelegate
 camera_exists = 0
 state = {}
 active_campaigns = []
-displayed_campaigns = []
 offline_campaigns = []
 count = 0
 
@@ -72,6 +71,7 @@ def internet(host='8.8.8.8', port=53, timeout=3):
 
 
 def initiateState():
+    logging.info('initiating state')
     global state
     state['login'] = 'OFF'
     state['location'] = (34.5849, -118.1568)
@@ -185,6 +185,7 @@ def main():
     return
 
 if __name__ == '__main__':
+    state = {}
     logging.info('starting program')
     gpsp = GpsPoller()
     campaign_one = '/home/pi/ADWAY/JP'
@@ -201,13 +202,13 @@ if __name__ == '__main__':
     camp_four_id = '4'
     count = 0
 
+    initiateState()
+
     logging.info('checking for internet')
     if internet():
-        logging.info('initiating state')
-        initiateState()
+        logging.info('got internet')
         login(sysparam.user, sysparam.password, state['location'])
         initializeDevice(sysparam.user, state['location'])
-        logging.info('got internet')
     else:
         logging.info('no internet, continuing...')
         
@@ -218,15 +219,22 @@ if __name__ == '__main__':
             displayed_campaigns = []
 
             logging.info('reading from GPS')
-            read_lat = round( gpsd.fix.latitude, 4)
-            proper_lat = ((read_lat - int(read_lat))/60) + int(read_lat)
-            read_lon = round(gpsd.fix.longitude, 4)
-            proper_lon = ((read_lon - int(read_lon))/60) + int(read_lon)
-            latString = read_lat
-            lonString = read_lon
+            try:
+                read_lat = round( gpsd.fix.latitude, 4)
+                read_lon = round(gpsd.fix.longitude, 4)
+                latString = read_lat
+                lonString = read_lon
+                logging.info('GPS read successful')
+
+            except:
+                latString = state['last_location'][0]
+                lonString = state['last_location'][1]
+                logging.info('GPS read unsuccessful')
 
             logging.info(latString)
             logging.info(lonString)
+
+            ###############################################################
 
             displayed_campaign = {}
             displayed_campaign['fix'] = True
@@ -237,22 +245,31 @@ if __name__ == '__main__':
                 lonString = state['last_location'][1]
                 displayed_campaign['fix'] = False
 
+            logging.info('Converting speed')
             try:
                 spdString = int((round(gpsd.fix.speed, 4) * 1.60934))  # Converting MPH to KPH
             except:
                 spdString = 0
 
-            dateString = str(gpsd.utc)
-            dateString = dateString.replace('_', ' ')
+            if latString == 0.0 or lonString == 0.0:
+                dateString = '01-01-2019'
+            else:
+                dateString = str(gpsd.utc)
+                dateString = dateString.replace('_', ' ')
+
             state['location'] = (latString, lonString)
             state['last_location'] = state['location']
             state['speed'] = spdString
 
+            logging.info('Scanning for BT devices')
             try:
                 scanner = Scanner().withDelegate(ScanDelegate())
                 devices = len(scanner.scan(2.0))
+                logging.info('Got %s devices', str(devices))
             except:
+                logging.info('BT scan failed')
                 devices = 1
+
             logging.info('writing to GPS log')
             with open('/home/pi/ADWAY/gps.txt', 'a') as f:
                 f.write('Devices - ' + str(devices) + '\n')
@@ -287,30 +304,8 @@ if __name__ == '__main__':
             displayed_campaign = {}
             displayed_campaign['fix'] = True
 
-            logging.info('getting GPS')
-#            read_lat = round(gpsd.fix.latitude, 4)
-#            proper_lat = ((read_lat - int(read_lat))/60) + int(read_lat)
-#            read_lon = round(gpsd.fix.longitude, 4)
-#            proper_lon = ((read_lon - int(read_lon))/60) + int(read_lon)
-
-#            latString = read_lat
-#            lonString = read_lon
             if latString == 0.0 or lonString == 0.0:
-#                logging.info('No fix')
-#                latString = state['last_location'][0]
-#                lonString = state['last_location'][1]
                 displayed_campaign['fix'] = False
-
-#            try:
-#                spdString = int((round(gpsd.fix.speed, 4) * 1.60934))  # Converting MPH to KPH
-#            except:
-#                spdString = 0
-
-#            dateString = str(gpsd.utc)
-#            dateString = dateString.replace('_', ' ')
-#            state['location'] = (latString, lonString)
-#            state['last_location'] = state['location']
-#            state['speed'] = spdString
 
             logging.info('writing to gps log')
             with open('/home/pi/ADWAY/gps.txt', 'a') as f:
@@ -318,7 +313,8 @@ if __name__ == '__main__':
                 f.write('campaign_two - ' + dateString + '\n')
                 f.write(str(latString) + ', ' + str(lonString) + '\n')
                 f.write(str(spdString) + 'kph\n')
-            logging.info('trying to display image')
+
+            logging.info('trying to display image two')
             try:
                 displayImage(campaign_two, 8, 'campaign_two', '2', (latString, lonString))
                 displayed_campaign["campaign_id"] = camp_two_id
@@ -344,37 +340,18 @@ if __name__ == '__main__':
             logging.info('starting campaign three')
             displayed_campaign = {}
             displayed_campaign['fix'] = True
-#            logging.info('reading from gps')
-#            read_lat = round(gpsd.fix.latitude, 4)
-#            proper_lat = ((read_lat - int(read_lat))/60) + int(read_lat)
-#            read_lon = round(gpsd.fix.longitude, 4)
-#            proper_lon = ((read_lon - int(read_lon))/60) + int(read_lon)
 
-#            latString = read_lat
-#            lonString = read_lon
             if latString == 0.0 or lonString == 0.0:
-#                logging.info('No fix')
-#                latString = state['last_location'][0]
-#                lonString = state['last_location'][1]
                 displayed_campaign['fix'] = False
 
-#            try:
-#                spdString = int((round(gpsd.fix.speed, 4) * 1.60934))  # Converting MPH to KPH
-#            except:
-#                spdString = 0
-
-#            dateString = str(gpsd.utc)
-#            dateString = dateString.replace('_', ' ')
-#            state['location'] = (latString, lonString)
-#            state['last_location'] = state['location']
-#            state['speed'] = spdString
             logging.info('writing to gps log')
             with open('/home/pi/ADWAY/gps.txt', 'a') as f:
                 f.write('Devices - ' + str(devices) + '\n')
                 f.write('campaign_three - ' + dateString + '\n')
                 f.write(str(latString) + ', ' + str(lonString) + '\n')
                 f.write(str(spdString) + 'kph\n')
-            logging.info('trying to display image')
+
+            logging.info('trying to display image three')
             try:
                 displayImage(campaign_three, 5, 'campaign_three', '3', (latString, lonString))
                 displayed_campaign["campaign_id"] = camp_three_id
@@ -400,37 +377,18 @@ if __name__ == '__main__':
             logging.info('starting campaign four')
             displayed_campaign = {}
             displayed_campaign['fix'] = True
-            logging.info('reading gps')
-#            read_lat = round(gpsd.fix.latitude, 4)
-#            proper_lat = ((read_lat - int(read_lat))/60) + int(read_lat)
-#            read_lon = round(gpsd.fix.longitude, 4)
-#            proper_lon = ((read_lon - int(read_lon))/60) + int(read_lon)
 
-#            latString = read_lat
-#            lonString = read_lon
             if latString == 0.0 or lonString == 0.0:
-#                logging.info('No fix')
-#                latString = state['last_location'][0]
-#                lonString = state['last_location'][1]
                 displayed_campaign['fix'] = False
 
-#            try:
-#                spdString = int((round(gpsd.fix.speed, 4) * 1.60934))  # Converting MPH to KPH
-#            except:
-#                spdString = 0
-
-#            dateString = str(gpsd.utc)
-#            dateString = dateString.replace('_', ' ')
-#            state['location'] = (latString, lonString)
-#            state['last_location'] = state['location']
-#            state['speed'] = spdString
             logging.info('writing to gps log')
             with open('/home/pi/ADWAY/gps.txt', 'a') as f:
                 f.write('Devices - ' + str(devices) + '\n')
                 f.write('campaign_four - ' + dateString + '\n')
                 f.write(str(latString) + ', ' + str(lonString) + '\n')
                 f.write(str(spdString) + 'kph\n')
-            logging.info('trying to display image')
+
+            logging.info('trying to display image four')
             try:
                 displayImage(campaign_four, 8, 'campaign_four', '4', (latString, lonString))
                 displayed_campaign["campaign_id"] = camp_four_id
@@ -456,37 +414,17 @@ if __name__ == '__main__':
             logging.info('starting campaign five')
             displayed_campaign = {}
             displayed_campaign['fix'] = True
-#            logging.info('reading gps')
-#            read_lat = round(gpsd.fix.latitude, 4)
-#            proper_lat = ((read_lat - int(read_lat))/60) + int(read_lat)
-#            read_lon = round(gpsd.fix.longitude, 4)
-#            proper_lon = ((read_lon - int(read_lon))/60) + int(read_lon)
 
-#            latString = read_lat
-#            lonString = read_lon
             if latString == 0.0 or lonString == 0.0:
-#                logging.info('No fix')
-#                latString = state['last_location'][0]
-#                lonString = state['last_location'][1]
                 displayed_campaign['fix'] = False
 
-#            try:
-#                spdString = int((round(gpsd.fix.speed, 4) * 1.60934))  # Converting MPH to KPH
-#            except:
-#                spdString = 0
-
-#            dateString = str(gpsd.utc)
-#            dateString = dateString.replace('_', ' ')
-#            state['location'] = (latString, lonString)
-#            state['last_location'] = state['location']
-#            state['speed'] = spdString
             logging.info('writing to gps log')
             with open('/home/pi/ADWAY/gps.txt', 'a') as f:
                 f.write('Devices - ' + str(devices) + '\n')
                 f.write('campaign_three - ' + dateString + '\n')
                 f.write(str(latString) + ', ' + str(lonString) + '\n')
                 f.write(str(spdString) + 'kph\n')
-            logging.info('trying to display image')
+            logging.info('trying to display image five')
             try:
                 displayImage(campaign_three, 5, 'campaign_three', '3', (latString, lonString))
                 displayed_campaign["campaign_id"] = camp_three_id
@@ -512,6 +450,11 @@ if __name__ == '__main__':
         
             if internet():
 
+                # First make sure you're logged in and have a token
+                if state['login'] == 'OFF':
+                    login(sysparam.user, sysparam.password, state['location'])
+                    initializeDevice(sysparam.user, state['location'])
+
                 logging.info('Have connection, uploading stats')
                 url = base_url + '/get/content'
 
@@ -519,8 +462,6 @@ if __name__ == '__main__':
                 for i in range(len(displayed_campaigns)):
                     stats.append(displayed_campaigns[i])
                 sent_stats = json.dumps(stats)
-#                sent_stats = str(stats)
-#                sent_stats = sent_stats.replace("'", '"')
 
                 payload = '{"user": "' + sysparam.user + '", "code": "' + token + '", "API_KEY": "' + api_key + '", "data": {"lat":' + str(state['location'][0]) + ', "lon": ' + str(state['location'][1]) + ', "cur_campaign": ' + str(state['current_campaign']) + ', "device_id": "' + state['device_id'] + '", "projector_left": 325, "projector_right": 326, "stats": ' + sent_stats + '}} '
                 #print json.dumps(payload)
