@@ -1,0 +1,4 @@
+sudo gpsd /dev/serial0 -F /var/run/gpsd.sock
+DISPLAY=:0
+sleep 30
+sudo /usr/bin/python /home/pi/Code/adway-controller/forever.py 

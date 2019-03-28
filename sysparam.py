@@ -19,7 +19,5 @@ orientation = 'LEFT'  # Default
 api_key = '21E4E81DF8E9103AAA181228C7B3D111'
 base_url = 'https://api.adwayusa.com'
 image_dir = ('/home/pi/Adway/images/')
-user = 'wolframdonat@gmail.com'
-passwd = '5mudg301'
-
-
+user = 'someone@example.com'
+passwd = 'xxx'
